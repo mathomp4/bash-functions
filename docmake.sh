@@ -17,7 +17,7 @@
 #   $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type-Ninja
 
 function usage() {
-   echo "Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --builddir <custom_build_dir> --installdir <custom_install_dir>"
+   echo "Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options>"
    echo ""
    echo "  --debug: build type is Debug"
    echo "  --aggressive: build type is Aggressive"
@@ -27,6 +27,7 @@ function usage() {
    echo "  --runtests: run the tests after the build and install"
    echo '  --builddir <custom_build_dir>: use a custom build directory (relative to $CMAKE_BUILD_LOCATION/$current_basename)'
    echo '  --installdir <custom_install_dir>: use a custom install directory (relative to $CMAKE_INSTALL_LOCATION/$current_basename)'
+   echo '  --cmake-options <additional_cmake_options>: pass in additional CMake options'
    echo 
    echo "  If the custom build and install directories are not given, the default build and install directories are:"
    echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-$build_type-SLES<OS_VERSION>'
@@ -81,6 +82,7 @@ function docmake() {
    # and not the build and install commands
    # We also want a dryrun option to echo the cmake command and not run it
    # We also want the ability to pass in a custom build and install directory
+   # We also need a way to pass in additional CMake options if desired
   
    only_cmake=false 
    dryrun=false
@@ -89,6 +91,7 @@ function docmake() {
    build_type="Release"
    custom_build_dir=""
    custom_install_dir=""
+   additional_cmake_options=""
    while [ "$1" != "" ]; do
       case $1 in
          --debug)
@@ -116,6 +119,10 @@ function docmake() {
          --installdir)
             shift
             custom_install_dir=$1
+            ;;
+         --cmake-options)
+            shift
+            additional_cmake_options=$1
             ;;
          -h | --help)
             usage
@@ -177,7 +184,7 @@ function docmake() {
    fi
 
    if [ "$dryrun" == "true" ]; then
-      echo "Running: cmake -B $build_dir -S . -DCMAKE_BUILD_TYPE=$build_type --install-prefix $install_dir $cmake_gen"
+      echo "Running: cmake -B $build_dir -S . -DCMAKE_BUILD_TYPE=$build_type --install-prefix $install_dir $cmake_gen $additional_cmake_options"
       if [ "$only_cmake" == "true" ]; then
          return
       else
@@ -193,7 +200,7 @@ function docmake() {
       echo "$(basename $build_dir) already exists. Not linking."
    fi
    # Run cmake
-   cmake -B $build_dir -S . -DCMAKE_BUILD_TYPE=$build_type --install-prefix $install_dir $cmake_gen
+   cmake -B $build_dir -S . -DCMAKE_BUILD_TYPE=$build_type --install-prefix $install_dir $cmake_gen $additional_cmake_options
    # the build directory with the dirname of the full $build_dir path
    if [ "$only_cmake" == "true" ]; then
       echo ""

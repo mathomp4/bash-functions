@@ -16,7 +16,7 @@ A user must have the following environment variables set:
 ### Usage
 
 ```
-Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --builddir <custom_build_dir> --installdir <custom_install_dir>
+Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options>
 
   --debug: build type is Debug
   --aggressive: build type is Aggressive
@@ -26,6 +26,7 @@ Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-r
   --runtests: run the tests after the build and install
   --builddir <custom_build_dir>: use a custom build directory (relative to $CMAKE_BUILD_LOCATION/$current_basename)
   --installdir <custom_install_dir>: use a custom install directory (relative to $CMAKE_INSTALL_LOCATION/$current_basename)
+  --cmake-options <additional_cmake_options>: pass in additional CMake options
 
   If the custom build and install directories are not given, the default build and install directories are:
     $CMAKE_BUILD_LOCATION/$current_basename/build-$build_type-SLES<OS_VERSION>
