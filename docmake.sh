@@ -190,6 +190,9 @@ function docmake() {
       else
          echo "Running: cmake --build $build_dir --target install -j 10"
       fi
+      if [ "$runtests" == "true" ]; then
+         echo "Running: cmake --build $build_dir --target tests -j 10"
+      fi
       return
    fi
 
