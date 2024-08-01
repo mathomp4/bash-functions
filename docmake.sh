@@ -17,7 +17,7 @@
 #   $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type-Ninja
 
 function usage() {
-   echo "Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options>"
+   echo "Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --jobs <number_of_jobs> --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options>"
    echo ""
    echo "  --debug: build type is Debug"
    echo "  --aggressive: build type is Aggressive"
@@ -25,6 +25,7 @@ function usage() {
    echo "  --only-cmake: only run the cmake command"
    echo "  -n|--dryrun|--dry-run: echo the cmake command and not run it"
    echo "  --runtests: run the tests after the build and install"
+   echo '  --jobs <number_of_jobs>: specify the number of jobs to run in parallel'
    echo '  --builddir <custom_build_dir>: use a custom build directory (relative to $CMAKE_BUILD_LOCATION/$current_basename)'
    echo '  --installdir <custom_install_dir>: use a custom install directory (relative to $CMAKE_INSTALL_LOCATION/$current_basename)'
    echo '  --cmake-options <additional_cmake_options>: pass in additional CMake options'
@@ -92,6 +93,7 @@ function docmake() {
    custom_build_dir=""
    custom_install_dir=""
    additional_cmake_options=""
+   num_jobs=10
    while [ "$1" != "" ]; do
       case $1 in
          --debug)
@@ -123,6 +125,10 @@ function docmake() {
          --cmake-options)
             shift
             additional_cmake_options=$1
+            ;;
+         --jobs)
+            shift
+            num_jobs=$1
             ;;
          -h | --help)
             usage
@@ -188,10 +194,10 @@ function docmake() {
       if [ "$only_cmake" == "true" ]; then
          return
       else
-         echo "Running: cmake --build $build_dir --target install -j 10"
+         echo "Running: cmake --build $build_dir --target install -j $num_jobs"
       fi
       if [ "$runtests" == "true" ]; then
-         echo "Running: cmake --build $build_dir --target tests -j 10"
+         echo "Running: cmake --build $build_dir --target tests -j $num_jobs"
       fi
       return
    fi
