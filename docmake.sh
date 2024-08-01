@@ -75,6 +75,13 @@ function docmake() {
       fi
    fi
 
+   # We want to make sure that the user is in a directory that has a CMakeLists.txt
+   # file. If not, we will return an error
+   if [ ! -f CMakeLists.txt ]; then
+      echo "No CMakeLists.txt file found in the current directory"
+      return 1
+   fi
+
    # We want to use command line arguments for the build type and generator
    # for example:
    #   docmake --build-type=Release --generator=Unix|Ninja 
