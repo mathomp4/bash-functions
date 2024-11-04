@@ -17,7 +17,7 @@
 #   $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type-Ninja
 
 function usage() {
-   echo "Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --jobs <number_of_jobs> --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options>"
+   echo "Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --jobs <number_of_jobs> --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options> --mit"
    echo ""
    echo "  --debug: build type is Debug"
    echo "  --aggressive: build type is Aggressive"
@@ -29,6 +29,7 @@ function usage() {
    echo '  --builddir <custom_build_dir>: use a custom build directory (relative to $CMAKE_BUILD_LOCATION/$current_basename)'
    echo '  --installdir <custom_install_dir>: use a custom install directory (relative to $CMAKE_INSTALL_LOCATION/$current_basename)'
    echo '  --cmake-options <additional_cmake_options>: pass in additional CMake options'
+   echo "  --mit: build for MIT ocean"
    echo 
    echo "  If the custom build and install directories are not given, the default build and install directories are:"
    echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-$build_type-SLES<OS_VERSION>'
@@ -96,6 +97,7 @@ function docmake() {
    dryrun=false
    do_ninja=false
    runtests=false
+   mitbuild=false
    build_type="Release"
    custom_build_dir=""
    custom_install_dir=""
@@ -120,6 +122,9 @@ function docmake() {
             ;;
          --runtests)
             runtests=true
+            ;;
+         --mit)
+            mitbuild=true
             ;;
          --builddir)
             shift
@@ -194,6 +199,10 @@ function docmake() {
    fi
    if [[ $install_dir != *SLES* ]]; then
       install_dir+="-SLES$OS_VERSION"
+   fi
+
+   if [[ $mitbuild == "true" ]]; then
+      additional_cmake_options+=" -DBUILD_MIT_OCEAN=ON -DMIT_CONFIG_ID=c90_llc90_02"
    fi
 
    if [ "$dryrun" == "true" ]; then
