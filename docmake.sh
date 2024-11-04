@@ -17,7 +17,7 @@
 #   $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type-Ninja
 
 function usage() {
-   echo "Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --jobs <number_of_jobs> --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options> --mit"
+   echo "Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --jobs <number_of_jobs> --extra <extra_name> --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options> --mit"
    echo ""
    echo "  --debug: build type is Debug"
    echo "  --aggressive: build type is Aggressive"
@@ -26,6 +26,7 @@ function usage() {
    echo "  -n|--dryrun|--dry-run: echo the cmake command and not run it"
    echo "  --runtests: run the tests after the build and install"
    echo '  --jobs <number_of_jobs>: specify the number of jobs to run in parallel'
+   echo '  --extra <extra_name>: use a custom build and install directory with this additional name (relative to $CMAKE_BUILD_LOCATION/$current_basename and $CMAKE_INSTALL_LOCATION/$current_basename)'
    echo '  --builddir <custom_build_dir>: use a custom build directory (relative to $CMAKE_BUILD_LOCATION/$current_basename)'
    echo '  --installdir <custom_install_dir>: use a custom install directory (relative to $CMAKE_INSTALL_LOCATION/$current_basename)'
    echo '  --cmake-options <additional_cmake_options>: pass in additional CMake options'
@@ -37,6 +38,10 @@ function usage() {
    echo '  where $current_basename is the name of the directory that docmake is called from'
    echo '  and $build_type is the build type (Debug, Aggressive, or Release)'
    echo '  If the Ninja generator is used, then the build and install directories are appended with "-Ninja"'
+   echo 
+   echo '  If the extra option is given, the build and install directories are:'
+   echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-<extra_name>-$build_type-SLES<OS_VERSION>'
+   echo '    $CMAKE_INSTALL_LOCATION/$current_basename/install-<extra_name>-$build_type-SLES<OS_VERSION>'
    echo 
    echo '  If a custom build and/or install directory is given, the build and install directories are:'
    echo '    $CMAKE_BUILD_LOCATION/$current_basename/<custom_build_dir>-$build_type-SLES<OS_VERSION>'
@@ -83,6 +88,12 @@ function docmake() {
       return 1
    fi
 
+   # Also, let's make sure there is a project name in the CMakeLists.txt file
+   if [ -z "$(grep project CMakeLists.txt)" ]; then
+      echo "No project found in the CMakeLists.txt file. Are you sure this is a CMake project?"
+      return 1
+   fi
+
    # We want to use command line arguments for the build type and generator
    # for example:
    #   docmake --build-type=Release --generator=Unix|Ninja 
@@ -99,6 +110,7 @@ function docmake() {
    runtests=false
    mitbuild=false
    build_type="Release"
+   extra_name=""
    custom_build_dir=""
    custom_install_dir=""
    additional_cmake_options=""
@@ -125,6 +137,10 @@ function docmake() {
             ;;
          --mit)
             mitbuild=true
+            ;;
+         --extra)
+            shift
+            extra_name=$1
             ;;
          --builddir)
             shift
@@ -162,9 +178,17 @@ function docmake() {
    # $CMAKE_BUILD_LOCATION and $CMAKE_INSTALL_LOCATION and we will append
    # the build type and the OS version to the custom build and install directories
    # if those words are not already in the custom build and install directories
+   #
+   # Also, if --extra is provided, we will use that as the additional name
+   # but if --builddir and --installdir are provided, we will use those and it superseded
 
-   local default_build_dir="$CMAKE_BUILD_LOCATION/$current_basename/build-$build_type"
-   local default_install_dir="$CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type"
+   if [ "$extra_name" != "" ]; then
+      local default_build_dir="$CMAKE_BUILD_LOCATION/$current_basename/build-$extra_name-$build_type"
+      local default_install_dir="$CMAKE_INSTALL_LOCATION/$current_basename/install-$extra_name-$build_type"
+   else
+      local default_build_dir="$CMAKE_BUILD_LOCATION/$current_basename/build-$build_type"
+      local default_install_dir="$CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type"
+   fi
    if [ "$custom_build_dir" != "" ]; then
       build_dir="$CMAKE_BUILD_LOCATION/$current_basename/$custom_build_dir"
       if [[ $custom_build_dir != *"$build_type"* ]]; then
