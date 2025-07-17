@@ -31,21 +31,22 @@ function usage() {
    echo '  --installdir <custom_install_dir>: use a custom install directory (relative to $CMAKE_INSTALL_LOCATION/$current_basename)'
    echo '  --cmake-options <additional_cmake_options>: pass in additional CMake options'
    echo "  --mit: build for MIT ocean"
+   echo "  --no-f2py: do not build f2py"
    echo 
    echo "  If the custom build and install directories are not given, the default build and install directories are:"
-   echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-$build_type-SLES<OS_VERSION>'
-   echo '    $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type-SLES<OS_VERSION>'
+   echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-$build_type'
+   echo '    $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type'
    echo '  where $current_basename is the name of the directory that docmake is called from'
    echo '  and $build_type is the build type (Debug, Aggressive, or Release)'
    echo '  If the Ninja generator is used, then the build and install directories are appended with "-Ninja"'
    echo 
    echo '  If the extra option is given, the build and install directories are:'
-   echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-<extra_name>-$build_type-SLES<OS_VERSION>'
-   echo '    $CMAKE_INSTALL_LOCATION/$current_basename/install-<extra_name>-$build_type-SLES<OS_VERSION>'
+   echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-<extra_name>-$build_type'
+   echo '    $CMAKE_INSTALL_LOCATION/$current_basename/install-<extra_name>-$build_type'
    echo 
    echo '  If a custom build and/or install directory is given, the build and install directories are:'
-   echo '    $CMAKE_BUILD_LOCATION/$current_basename/<custom_build_dir>-$build_type-SLES<OS_VERSION>'
-   echo '    $CMAKE_INSTALL_LOCATION/$current_basename/<custom_install_dir>-$build_type-SLES<OS_VERSION>'
+   echo '    $CMAKE_BUILD_LOCATION/$current_basename/<custom_build_dir>-$build_type'
+   echo '    $CMAKE_INSTALL_LOCATION/$current_basename/<custom_install_dir>-$build_type'
    echo '  where $current_basename is the name of the directory that docmake is called from'
    echo 
    echo "NOTE: Users will need to set the CMAKE_BUILD_LOCATION and CMAKE_INSTALL_LOCATION environment variables"
@@ -109,6 +110,7 @@ function docmake() {
    do_ninja=false
    runtests=false
    mitbuild=false
+   use_f2py=true
    build_type="Release"
    extra_name=""
    custom_build_dir=""
@@ -137,6 +139,9 @@ function docmake() {
             ;;
          --mit)
             mitbuild=true
+            ;;
+         --no-f2py)
+            use_f2py=false
             ;;
          --extra)
             shift
@@ -214,20 +219,14 @@ function docmake() {
       cmake_gen=""
    fi
 
-   # we also will append SLES12 or SLES15 depending on the OS version
-   OS_VERSION=$(grep VERSION_ID /etc/os-release | cut -d= -f2 | cut -d. -f1 | sed 's/"//g')
-   # we append only if we don't have "SLES12" or "SLES15" in build_dir and install_dir
-   
-   if [[ $build_dir != *SLES* ]]; then
-      build_dir+="-SLES$OS_VERSION"
-   fi
-   if [[ $install_dir != *SLES* ]]; then
-      install_dir+="-SLES$OS_VERSION"
-   fi
-
    if [[ $mitbuild == "true" ]]; then
       additional_cmake_options+=" -DBUILD_MIT_OCEAN=ON -DMIT_CONFIG_ID=c90_llc90_02"
    fi
+
+   if [[ $use_f2py == "false" ]]; then
+      additional_cmake_options+=" -DUSE_F2PY:BOOL=OFF"
+   fi
+
 
    if [ "$dryrun" == "true" ]; then
       echo "Running: cmake -B $build_dir -S . -DCMAKE_BUILD_TYPE=$build_type --install-prefix $install_dir $cmake_gen $additional_cmake_options"
