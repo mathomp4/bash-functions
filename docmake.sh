@@ -75,11 +75,13 @@ function docmake() {
       return 1
    else
       if [ "$CMAKE_BUILD_LOCATION" == "pwd" ]; then
-         CMAKE_BUILD_LOCATION=$(dirname $(pwd))
+         local _CMAKE_BUILD_LOCATION=$(dirname $(pwd))
          local CMAKE_BUILD_IN_PWD="true"
+      else
+         local _CMAKE_BUILD_LOCATION="$CMAKE_BUILD_LOCATION"
       fi
 
-      if [ ! -d "$CMAKE_BUILD_LOCATION" ]; then
+      if [ ! -d "$_CMAKE_BUILD_LOCATION" ]; then
          echo "CMAKE_BUILD_LOCATION is not a directory"
          return 1
       fi
@@ -91,11 +93,13 @@ function docmake() {
       return 1
    else
       if [ "$CMAKE_INSTALL_LOCATION" == "pwd" ]; then
-         CMAKE_INSTALL_LOCATION=$(dirname $(pwd))
+         local _CMAKE_INSTALL_LOCATION=$(dirname $(pwd))
          local CMAKE_INSTALL_IN_PWD="true"
+      else
+         local _CMAKE_INSTALL_LOCATION="$CMAKE_INSTALL_LOCATION"
       fi
 
-      if [ ! -d "$CMAKE_INSTALL_LOCATION" ]; then
+      if [ ! -d "$_CMAKE_INSTALL_LOCATION" ]; then
          echo "CMAKE_INSTALL_LOCATION is not a directory"
          return 1
       fi
@@ -215,14 +219,14 @@ function docmake() {
    # but if --builddir and --installdir are provided, we will use those and it superseded
    
    if [ "$extra_name" != "" ]; then
-      local default_build_dir="$CMAKE_BUILD_LOCATION/$current_basename/build-$extra_name-$build_type"
-      local default_install_dir="$CMAKE_INSTALL_LOCATION/$current_basename/install-$extra_name-$build_type"
+      local default_build_dir="$_CMAKE_BUILD_LOCATION/$current_basename/build-$extra_name-$build_type"
+      local default_install_dir="$_CMAKE_INSTALL_LOCATION/$current_basename/install-$extra_name-$build_type"
    else
-      local default_build_dir="$CMAKE_BUILD_LOCATION/$current_basename/build-$build_type"
-      local default_install_dir="$CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type"
+      local default_build_dir="$_CMAKE_BUILD_LOCATION/$current_basename/build-$build_type"
+      local default_install_dir="$_CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type"
    fi
    if [ "$custom_build_dir" != "" ]; then
-      build_dir="$CMAKE_BUILD_LOCATION/$current_basename/$custom_build_dir"
+      build_dir="$_CMAKE_BUILD_LOCATION/$current_basename/$custom_build_dir"
       if [[ $custom_build_dir != *"$build_type"* ]]; then
          build_dir+="-$build_type"
       fi
@@ -230,7 +234,7 @@ function docmake() {
       build_dir="$default_build_dir"
    fi
    if [ "$custom_install_dir" != "" ]; then
-      install_dir="$CMAKE_INSTALL_LOCATION/$current_basename/$custom_install_dir"
+      install_dir="$_CMAKE_INSTALL_LOCATION/$current_basename/$custom_install_dir"
       if [[ $custom_install_dir != *"$build_type"* ]]; then
          install_dir+="-$build_type"
       fi
