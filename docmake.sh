@@ -69,13 +69,14 @@ function docmake() {
    # We need to allow for the builds to be in pwd. For that, if CMAKE_BUILD_LOCATION
    # or CMAKE_INSTALL_LOCATION is "pwd" then we need to handle that case
 
+   local CMAKE_BUILD_IN_PWD="false"
    if [ -z "$CMAKE_BUILD_LOCATION" ]; then
       echo "CMAKE_BUILD_LOCATION environment variable is not set"
       return 1
    else
       if [ "$CMAKE_BUILD_LOCATION" == "pwd" ]; then
          CMAKE_BUILD_LOCATION=$(dirname $(pwd))
-         local CMAKE_BUILD_IN_PWD=true
+         local CMAKE_BUILD_IN_PWD="true"
       fi
 
       if [ ! -d "$CMAKE_BUILD_LOCATION" ]; then
@@ -84,13 +85,14 @@ function docmake() {
       fi
    fi
 
+   local CMAKE_INSTALL_IN_PWD="false"
    if [ -z "$CMAKE_INSTALL_LOCATION" ]; then
       echo "CMAKE_INSTALL_LOCATION environment variable is not set"
       return 1
    else
       if [ "$CMAKE_INSTALL_LOCATION" == "pwd" ]; then
          CMAKE_INSTALL_LOCATION=$(dirname $(pwd))
-         local CMAKE_INSTALL_IN_PWD=true
+         local CMAKE_INSTALL_IN_PWD="true"
       fi
 
       if [ ! -d "$CMAKE_INSTALL_LOCATION" ]; then
@@ -255,10 +257,16 @@ function docmake() {
 
    if [ "$dryrun" == "true" ]; then
       echo "Running: cmake -B $build_dir -S . -DCMAKE_BUILD_TYPE=$build_type --install-prefix $install_dir $cmake_gen $additional_cmake_options"
+      if [ "$CMAKE_BUILD_IN_PWD" == "false" ]; then
+         echo "Will symlink $build_dir to $(pwd)/$(basename $build_dir)"
+      fi
       if [ "$only_cmake" == "true" ]; then
          return
       else
          echo "Running: cmake --build $build_dir --target install -j $num_jobs"
+      fi
+      if [ "$CMAKE_INSTALL_IN_PWD" == "false" ]; then
+         echo "Will symlink $install_dir to $(pwd)/$(basename $install_dir)"
       fi
       if [ "$runtests" == "true" ]; then
          echo "Running: cmake --build $build_dir --target tests -j $num_jobs"
@@ -268,8 +276,8 @@ function docmake() {
 
    # Link the build directory to the source directory, if the symlink does not exist, linking
    # NOTE: We do not want to do this if the build directory is in pwd
-   # so we will check if CMAKE_BUILD_IN_PWD is set to true
-   if [ "$CMAKE_BUILD_IN_PWD" == "true" ]; then
+   # so we will check if CMAKE_BUILD_IN_PWD is set to false
+   if [ "$CMAKE_BUILD_IN_PWD" == "false" ]; then
       if [ ! -L $(pwd)/$(basename $build_dir) ]; then
          ln -sv $build_dir .
       else
@@ -289,8 +297,8 @@ function docmake() {
    # Link the install directory to the source directory if the symlink does not exist, linking
    # the install directory with the dirname of the full $install_dir path
    # NOTE: We do not want to do this if the install directory is in pwd
-   # so we will check if CMAKE_INSTALL_IN_PWD is set to true
-   if [ "$CMAKE_INSTALL_IN_PWD" == "true" ]; then
+   # so we will check if CMAKE_INSTALL_IN_PWD is set to false
+   if [ "$CMAKE_INSTALL_IN_PWD" == "false" ]; then
       if [ ! -L $(pwd)/$(basename $install_dir) ]; then
          ln -sv $install_dir .
       else
