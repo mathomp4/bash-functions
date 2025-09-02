@@ -75,6 +75,7 @@ function docmake() {
    else
       if [ "$CMAKE_BUILD_LOCATION" == "pwd" ]; then
          CMAKE_BUILD_LOCATION=$(dirname $(pwd))
+         local CMAKE_BUILD_IN_PWD=true
       fi
 
       if [ ! -d "$CMAKE_BUILD_LOCATION" ]; then
@@ -89,6 +90,7 @@ function docmake() {
    else
       if [ "$CMAKE_INSTALL_LOCATION" == "pwd" ]; then
          CMAKE_INSTALL_LOCATION=$(dirname $(pwd))
+         local CMAKE_INSTALL_IN_PWD=true
       fi
 
       if [ ! -d "$CMAKE_INSTALL_LOCATION" ]; then
@@ -265,10 +267,14 @@ function docmake() {
    fi
 
    # Link the build directory to the source directory, if the symlink does not exist, linking
-   if [ ! -L $(pwd)/$(basename $build_dir) ]; then
-      ln -sv $build_dir .
-   else
-      echo "$(basename $build_dir) already exists. Not linking."
+   # NOTE: We do not want to do this if the build directory is in pwd
+   # so we will check if CMAKE_BUILD_IN_PWD is set to true
+   if [ "$CMAKE_BUILD_IN_PWD" == "true" ]; then
+      if [ ! -L $(pwd)/$(basename $build_dir) ]; then
+         ln -sv $build_dir .
+      else
+         echo "$(basename $build_dir) already exists. Not linking."
+      fi
    fi
    # Run cmake
    cmake -B $build_dir -S . -DCMAKE_BUILD_TYPE=$build_type --install-prefix $install_dir $cmake_gen $additional_cmake_options
@@ -282,10 +288,14 @@ function docmake() {
 
    # Link the install directory to the source directory if the symlink does not exist, linking
    # the install directory with the dirname of the full $install_dir path
-   if [ ! -L $(pwd)/$(basename $install_dir) ]; then
-      ln -sv $install_dir .
-   else
-      echo "$(basename $install_dir) already exists. Not linking."
+   # NOTE: We do not want to do this if the install directory is in pwd
+   # so we will check if CMAKE_INSTALL_IN_PWD is set to true
+   if [ "$CMAKE_INSTALL_IN_PWD" == "true" ]; then
+      if [ ! -L $(pwd)/$(basename $install_dir) ]; then
+         ln -sv $install_dir .
+      else
+         echo "$(basename $install_dir) already exists. Not linking."
+      fi
    fi
    # Run the build and install
    cmake --build $build_dir --target install -j 10
