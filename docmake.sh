@@ -54,6 +54,10 @@ function usage() {
    echo 
    echo "      CMAKE_BUILD_LOCATION: $CMAKE_BUILD_LOCATION"
    echo "      CMAKE_INSTALL_LOCATION: $CMAKE_INSTALL_LOCATION"
+   echo
+   echo "      If these environment variables are set to the string 'pwd', then the build and install locations"
+   echo "      will be set to the parent directory of the current working directory (i.e., the build and install"
+   echo "      locations will be in the same directory as the source code)."
 }
 
 function docmake() {
@@ -62,10 +66,17 @@ function docmake() {
    # environment variables are set. If they are, let's also make sure that
    # they are directories
 
+   # We need to allow for the builds to be in pwd. For that, if CMAKE_BUILD_LOCATION
+   # or CMAKE_INSTALL_LOCATION is "pwd" then we need to handle that case
+
    if [ -z "$CMAKE_BUILD_LOCATION" ]; then
       echo "CMAKE_BUILD_LOCATION environment variable is not set"
       return 1
    else
+      if [ "$CMAKE_BUILD_LOCATION" == "pwd" ]; then
+         CMAKE_BUILD_LOCATION=$(dirname $(pwd))
+      fi
+
       if [ ! -d "$CMAKE_BUILD_LOCATION" ]; then
          echo "CMAKE_BUILD_LOCATION is not a directory"
          return 1
@@ -76,6 +87,10 @@ function docmake() {
       echo "CMAKE_INSTALL_LOCATION environment variable is not set"
       return 1
    else
+      if [ "$CMAKE_INSTALL_LOCATION" == "pwd" ]; then
+         CMAKE_INSTALL_LOCATION=$(dirname $(pwd))
+      fi
+
       if [ ! -d "$CMAKE_INSTALL_LOCATION" ]; then
          echo "CMAKE_INSTALL_LOCATION is not a directory"
          return 1
@@ -104,7 +119,7 @@ function docmake() {
    # We also want a dryrun option to echo the cmake command and not run it
    # We also want the ability to pass in a custom build and install directory
    # We also need a way to pass in additional CMake options if desired
-  
+
    only_cmake=false 
    dryrun=false
    do_ninja=false
@@ -116,7 +131,15 @@ function docmake() {
    custom_build_dir=""
    custom_install_dir=""
    additional_cmake_options=""
+
+   # We will also allow the user to specify the number of jobs to run in parallel
+   # via environment variable DOCMAKE_NUM_JOBS or via a command line argument --jobs <number_of_jobs>
+   # the default will be 10 jobs
+
    num_jobs=10
+   if [ ! -z "$DOCMAKE_NUM_JOBS" ]; then
+      num_jobs=$DOCMAKE_NUM_JOBS
+   fi
    while [ "$1" != "" ]; do
       case $1 in
          --debug)
@@ -186,7 +209,7 @@ function docmake() {
    #
    # Also, if --extra is provided, we will use that as the additional name
    # but if --builddir and --installdir are provided, we will use those and it superseded
-
+   
    if [ "$extra_name" != "" ]; then
       local default_build_dir="$CMAKE_BUILD_LOCATION/$current_basename/build-$extra_name-$build_type"
       local default_install_dir="$CMAKE_INSTALL_LOCATION/$current_basename/install-$extra_name-$build_type"
