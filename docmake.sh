@@ -17,10 +17,11 @@
 #   $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type-Ninja
 
 function usage() {
-   echo "Usage: docmake (--debug | --aggressive) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --jobs <number_of_jobs> --extra <extra_name> --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options> --mit"
+   echo "Usage: docmake (--debug | --aggressive | --vecttrap) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --jobs <number_of_jobs> --extra <extra_name> --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options> --mit"
    echo ""
    echo "  --debug: build type is Debug"
    echo "  --aggressive: build type is Aggressive"
+   echo "  --vecttrap: build type is VectTrap"
    echo "  --ninja: use Ninja as the build system"
    echo "  --only-cmake: only run the cmake command"
    echo "  -n|--dryrun|--dry-run: echo the cmake command and not run it"
@@ -37,7 +38,7 @@ function usage() {
    echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-$build_type'
    echo '    $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type'
    echo '  where $current_basename is the name of the directory that docmake is called from'
-   echo '  and $build_type is the build type (Debug, Aggressive, or Release)'
+   echo '  and $build_type is the build type (Debug, Aggressive, VectTrap, or Release)'
    echo '  If the Ninja generator is used, then the build and install directories are appended with "-Ninja"'
    echo 
    echo '  If the extra option is given, the build and install directories are:'
@@ -155,6 +156,9 @@ function docmake() {
             ;;
          --aggressive)
             build_type="Aggressive"
+            ;;
+         --vecttrap)
+            build_type="VectTrap"
             ;;
          --ninja)
             do_ninja=true
