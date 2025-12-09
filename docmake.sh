@@ -33,26 +33,26 @@ function usage() {
    echo '  --cmake-options <additional_cmake_options>: pass in additional CMake options'
    echo "  --mit: build for MIT ocean"
    echo "  --no-f2py: do not build f2py"
-   echo 
+   echo
    echo "  If the custom build and install directories are not given, the default build and install directories are:"
    echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-$build_type'
    echo '    $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type'
    echo '  where $current_basename is the name of the directory that docmake is called from'
    echo '  and $build_type is the build type (Debug, Aggressive, VectTrap, or Release)'
    echo '  If the Ninja generator is used, then the build and install directories are appended with "-Ninja"'
-   echo 
+   echo
    echo '  If the extra option is given, the build and install directories are:'
    echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-<extra_name>-$build_type'
    echo '    $CMAKE_INSTALL_LOCATION/$current_basename/install-<extra_name>-$build_type'
-   echo 
+   echo
    echo '  If a custom build and/or install directory is given, the build and install directories are:'
    echo '    $CMAKE_BUILD_LOCATION/$current_basename/<custom_build_dir>-$build_type'
    echo '    $CMAKE_INSTALL_LOCATION/$current_basename/<custom_install_dir>-$build_type'
    echo '  where $current_basename is the name of the directory that docmake is called from'
-   echo 
+   echo
    echo "NOTE: Users will need to set the CMAKE_BUILD_LOCATION and CMAKE_INSTALL_LOCATION environment variables"
    echo "      to the desired build and install locations. These are currently set to:"
-   echo 
+   echo
    echo "      CMAKE_BUILD_LOCATION: $CMAKE_BUILD_LOCATION"
    echo "      CMAKE_INSTALL_LOCATION: $CMAKE_INSTALL_LOCATION"
    echo
@@ -121,7 +121,7 @@ function docmake() {
 
    # We want to use command line arguments for the build type and generator
    # for example:
-   #   docmake --build-type=Release --generator=Unix|Ninja 
+   #   docmake --build-type=Release --generator=Unix|Ninja
    #
    # we also want arguments like --only-cmake to only run the cmake command
    # and not the build and install commands
@@ -129,7 +129,7 @@ function docmake() {
    # We also want the ability to pass in a custom build and install directory
    # We also need a way to pass in additional CMake options if desired
 
-   only_cmake=false 
+   only_cmake=false
    dryrun=false
    do_ninja=false
    runtests=false
@@ -221,7 +221,7 @@ function docmake() {
    #
    # Also, if --extra is provided, we will use that as the additional name
    # but if --builddir and --installdir are provided, we will use those and it superseded
-   
+
    if [ "$extra_name" != "" ]; then
       local default_build_dir="$_CMAKE_BUILD_LOCATION/$current_basename/build-$extra_name-$build_type"
       local default_install_dir="$_CMAKE_INSTALL_LOCATION/$current_basename/install-$extra_name-$build_type"
@@ -298,7 +298,7 @@ function docmake() {
    if [ "$only_cmake" == "true" ]; then
       echo ""
       echo "To install, run:"
-      echo "cmake --build $build_dir --target install -j 10"
+      echo "cmake --build $build_dir --target install -j ${num_jobs}"
       return
    fi
 
@@ -314,11 +314,11 @@ function docmake() {
       fi
    fi
    # Run the build and install
-   cmake --build $build_dir --target install -j 10
+   cmake --build $build_dir --target install -j ${num_jobs}
 
    # Run tests if asked
    if [ "$runtests" == "true" ]; then
-      cmake --build $build_dir --target tests -j 10
+      cmake --build $build_dir --target tests -j ${num_jobs}
    fi
 }
 
