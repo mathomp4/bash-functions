@@ -1,28 +1,18 @@
 # vim: ft=bash
 
-#set -euo pipefail
-
-# We are going to write a bash function to handle all the above cases
-# it will have two arguments: build type and generator
-# The generator will default to "Unix Makefiles" if not given
-# We also need to capture the name of the directory that it is called from
-# and use to add onto both the build and install directories (which are
-# based on CMAKE_BUILD_LOCATION and CMAKE_INSTALL_LOCATION)
-# such that the build and install directories are:
-#   $CMAKE_BUILD_LOCATION/$current_basename/build-$build_type
-#   $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type
-# if using the Makefile generator, and if Ninja is used, then the build
-# and install directories are:
-#   $CMAKE_BUILD_LOCATION/$current_basename/build-$build_type-Ninja
-#   $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type-Ninja
+# Notes for bash:
+# - We use arrays (cmake_gen, additional_cmake_opts) so they expand cleanly.
+# - --cmake-options <"..."> can include multiple flags; we split them via unquoted expansion or read -a.
+# - Use $(dirname "${PWD}") for parent dir.
 
 function usage() {
-   echo "Usage: docmake (--debug | --aggressive | --vecttrap) --ninja --only-cmake -n|--dryrun|--dry-run --runtests --jobs <number_of_jobs> --extra <extra_name> --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options> --mit"
+   echo "Usage: docmake (--debug | --aggressive | --vecttrap) --ninja --gnumake --only-cmake -n|--dryrun|--dry-run --runtests --jobs <number_of_jobs> --extra <extra_name> --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options> --mit --profile"
    echo ""
    echo "  --debug: build type is Debug"
    echo "  --aggressive: build type is Aggressive"
    echo "  --vecttrap: build type is VectTrap"
-   echo "  --ninja: use Ninja as the build system"
+   echo "  --ninja: use Ninja as the build system (Default)"
+   echo "  --gnumake: use GNU Make as the build system"
    echo "  --only-cmake: only run the cmake command"
    echo "  -n|--dryrun|--dry-run: echo the cmake command and not run it"
    echo "  --runtests: run the tests after the build and install"
@@ -33,13 +23,14 @@ function usage() {
    echo '  --cmake-options <additional_cmake_options>: pass in additional CMake options'
    echo "  --mit: build for MIT ocean"
    echo "  --no-f2py: do not build f2py"
+   echo "  --profile: enable CMake profiling (google-trace format). Output saved to <build_dir>/cmake_profile.json"
    echo
    echo "  If the custom build and install directories are not given, the default build and install directories are:"
    echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-$build_type'
    echo '    $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type'
    echo '  where $current_basename is the name of the directory that docmake is called from'
    echo '  and $build_type is the build type (Debug, Aggressive, VectTrap, or Release)'
-   echo '  If the Ninja generator is used, then the build and install directories are appended with "-Ninja"'
+   echo '  If the Ninja generator is used (default), then the build and install directories are appended with "-Ninja"'
    echo
    echo '  If the extra option is given, the build and install directories are:'
    echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-<extra_name>-$build_type'
@@ -63,21 +54,15 @@ function usage() {
 
 function docmake() {
 
-   # Let's make sure that the CMAKE_BUILD_LOCATION and CMAKE_INSTALL_LOCATION
-   # environment variables are set. If they are, let's also make sure that
-   # they are directories
-
-   # We need to allow for the builds to be in pwd. For that, if CMAKE_BUILD_LOCATION
-   # or CMAKE_INSTALL_LOCATION is "pwd" then we need to handle that case
-
+   # Validate CMAKE_BUILD_LOCATION
    local CMAKE_BUILD_IN_PWD="false"
    if [ -z "$CMAKE_BUILD_LOCATION" ]; then
       echo "CMAKE_BUILD_LOCATION environment variable is not set"
       return 1
    else
       if [ "$CMAKE_BUILD_LOCATION" == "pwd" ]; then
-         local _CMAKE_BUILD_LOCATION=$(dirname $(pwd))
-         local CMAKE_BUILD_IN_PWD="true"
+         local _CMAKE_BUILD_LOCATION=$(dirname "$(pwd)")
+         CMAKE_BUILD_IN_PWD="true"
       else
          local _CMAKE_BUILD_LOCATION="$CMAKE_BUILD_LOCATION"
       fi
@@ -88,14 +73,15 @@ function docmake() {
       fi
    fi
 
+   # Validate CMAKE_INSTALL_LOCATION
    local CMAKE_INSTALL_IN_PWD="false"
    if [ -z "$CMAKE_INSTALL_LOCATION" ]; then
       echo "CMAKE_INSTALL_LOCATION environment variable is not set"
       return 1
    else
       if [ "$CMAKE_INSTALL_LOCATION" == "pwd" ]; then
-         local _CMAKE_INSTALL_LOCATION=$(dirname $(pwd))
-         local CMAKE_INSTALL_IN_PWD="true"
+         local _CMAKE_INSTALL_LOCATION=$(dirname "$(pwd)")
+         CMAKE_INSTALL_IN_PWD="true"
       else
          local _CMAKE_INSTALL_LOCATION="$CMAKE_INSTALL_LOCATION"
       fi
@@ -106,129 +92,92 @@ function docmake() {
       fi
    fi
 
-   # We want to make sure that the user is in a directory that has a CMakeLists.txt
-   # file. If not, we will return an error
+   # Must be in a CMake project dir
    if [ ! -f CMakeLists.txt ]; then
       echo "No CMakeLists.txt file found in the current directory"
       return 1
    fi
-
-   # Also, let's make sure there is a project name in the CMakeLists.txt file
-   if [ -z "$(grep project CMakeLists.txt)" ]; then
+   if ! grep -q 'project' CMakeLists.txt; then
       echo "No project found in the CMakeLists.txt file. Are you sure this is a CMake project?"
       return 1
    fi
 
-   # We want to use command line arguments for the build type and generator
-   # for example:
-   #   docmake --build-type=Release --generator=Unix|Ninja
-   #
-   # we also want arguments like --only-cmake to only run the cmake command
-   # and not the build and install commands
-   # We also want a dryrun option to echo the cmake command and not run it
-   # We also want the ability to pass in a custom build and install directory
-   # We also need a way to pass in additional CMake options if desired
+   # Defaults
+   local only_cmake=false
+   local dryrun=false
+   local do_ninja=true  # Default to Ninja
+   local runtests=false
+   local mitbuild=false
+   local use_f2py=true
+   local do_profile=false
+   local build_type="Release"
+   local extra_name=""
+   local custom_build_dir=""
+   local custom_install_dir=""
+   
+   # Use arrays for safer flag handling
+   local -a additional_cmake_opts=()
+   local -a cmake_gen=()
 
-   only_cmake=false
-   dryrun=false
-   do_ninja=false
-   runtests=false
-   mitbuild=false
-   use_f2py=true
-   build_type="Release"
-   extra_name=""
-   custom_build_dir=""
-   custom_install_dir=""
-   additional_cmake_options=""
-
-   # We will also allow the user to specify the number of jobs to run in parallel
-   # via environment variable DOCMAKE_NUM_JOBS or via a command line argument --jobs <number_of_jobs>
-   # the default will be 10 jobs
-
-   num_jobs=10
-   if [ ! -z "$DOCMAKE_NUM_JOBS" ]; then
+   local num_jobs=10
+   if [ -n "$DOCMAKE_NUM_JOBS" ]; then
       num_jobs=$DOCMAKE_NUM_JOBS
    fi
+
    while [ "$1" != "" ]; do
       case $1 in
-         --debug)
-            build_type="Debug"
-            ;;
-         --aggressive)
-            build_type="Aggressive"
-            ;;
-         --vecttrap)
-            build_type="VectTrap"
-            ;;
-         --ninja)
-            do_ninja=true
-            ;;
-         --only-cmake)
-            only_cmake=true
-            ;;
-         -n | --dryrun | --dry-run)
-            dryrun=true
-            ;;
-         --runtests)
-            runtests=true
-            ;;
-         --mit)
-            mitbuild=true
-            ;;
-         --no-f2py)
-            use_f2py=false
-            ;;
+         --debug)       build_type="Debug" ;;
+         --aggressive)  build_type="Aggressive" ;;
+         --vecttrap)    build_type="VectTrap" ;;
+         --ninja)       do_ninja=true ;;
+         --gnumake)     do_ninja=false ;;
+         --only-cmake)  only_cmake=true ;;
+         -n|--dryrun|--dry-run) dryrun=true ;;
+         --runtests)    runtests=true ;;
+         --mit)         mitbuild=true ;;
+         --no-f2py)     use_f2py=false ;;
+         --profile)     do_profile=true ;;
          --extra)
-            shift
-            extra_name=$1
-            ;;
+            shift; extra_name=$1 ;;
          --builddir)
-            shift
-            custom_build_dir=$1
-            ;;
+            shift; custom_build_dir=$1 ;;
          --installdir)
-            shift
-            custom_install_dir=$1
-            ;;
+            shift; custom_install_dir=$1 ;;
          --cmake-options)
             shift
-            additional_cmake_options=$1
+            # Split string into array elements by spaces (mimic standard shell splitting)
+            # This allows passing "-DVAR1=A -DVAR2=B" as one string
+            read -ra new_opts <<< "$1"
+            additional_cmake_opts+=("${new_opts[@]}")
             ;;
          --jobs)
-            shift
-            num_jobs=$1
-            ;;
-         -h | --help)
-            usage
-            return
-            ;;
+            shift; num_jobs=$1 ;;
+         -h|--help)
+            usage; return 0 ;;
          *)
             echo "Unknown option: $1"
-            usage
-            return 1
-            ;;
+            usage; return 1 ;;
       esac
       shift
    done
 
-   local current_basename=$(basename $(pwd))
-   # if the custom build and install directories are given, use them
-   # otherwise, use the default build and install directories. Note that the
-   # custom build and install directories will need to be relative to the
-   # $CMAKE_BUILD_LOCATION and $CMAKE_INSTALL_LOCATION and we will append
-   # the build type and the OS version to the custom build and install directories
-   # if those words are not already in the custom build and install directories
-   #
-   # Also, if --extra is provided, we will use that as the additional name
-   # but if --builddir and --installdir are provided, we will use those and it superseded
-
+   local current_basename=$(basename "$(pwd)")
+   
+   # Default build/install dirs
+   local default_build_dir
+   local default_install_dir
+   
    if [ "$extra_name" != "" ]; then
-      local default_build_dir="$_CMAKE_BUILD_LOCATION/$current_basename/build-$extra_name-$build_type"
-      local default_install_dir="$_CMAKE_INSTALL_LOCATION/$current_basename/install-$extra_name-$build_type"
+      default_build_dir="$_CMAKE_BUILD_LOCATION/$current_basename/build-$extra_name-$build_type"
+      default_install_dir="$_CMAKE_INSTALL_LOCATION/$current_basename/install-$extra_name-$build_type"
    else
-      local default_build_dir="$_CMAKE_BUILD_LOCATION/$current_basename/build-$build_type"
-      local default_install_dir="$_CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type"
+      default_build_dir="$_CMAKE_BUILD_LOCATION/$current_basename/build-$build_type"
+      default_install_dir="$_CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type"
    fi
+
+   local build_dir
+   local install_dir
+
    if [ "$custom_build_dir" != "" ]; then
       build_dir="$_CMAKE_BUILD_LOCATION/$current_basename/$custom_build_dir"
       if [[ $custom_build_dir != *"$build_type"* ]]; then
@@ -237,6 +186,7 @@ function docmake() {
    else
       build_dir="$default_build_dir"
    fi
+
    if [ "$custom_install_dir" != "" ]; then
       install_dir="$_CMAKE_INSTALL_LOCATION/$current_basename/$custom_install_dir"
       if [[ $custom_install_dir != *"$build_type"* ]]; then
@@ -249,76 +199,74 @@ function docmake() {
    if [ "$do_ninja" == "true" ]; then
       build_dir+="-Ninja"
       install_dir+="-Ninja"
-      cmake_gen="-G Ninja"
-   else
-      cmake_gen=""
+      cmake_gen=("-G" "Ninja")
    fi
 
    if [[ $mitbuild == "true" ]]; then
-      additional_cmake_options+=" -DBUILD_MIT_OCEAN=ON -DMIT_CONFIG_ID=c90_llc90_02"
+      additional_cmake_opts+=("-DBUILD_MIT_OCEAN=ON" "-DMIT_CONFIG_ID=c90_llc90_02")
    fi
 
    if [[ $use_f2py == "false" ]]; then
-      additional_cmake_options+=" -DUSE_F2PY:BOOL=OFF"
+      additional_cmake_opts+=("-DUSE_F2PY:BOOL=OFF")
    fi
 
+   if [[ $do_profile == "true" ]]; then
+      local profile_file="${build_dir}/cmake_profile.json"
+      additional_cmake_opts+=("--profiling-format=google-trace" "--profiling-output=${profile_file}")
+      echo "Profiling enabled: output will be at ${profile_file}"
+   fi
 
+   # Dry run
    if [ "$dryrun" == "true" ]; then
-      echo "Running: cmake -B $build_dir -S . -DCMAKE_BUILD_TYPE=$build_type --install-prefix $install_dir $cmake_gen $additional_cmake_options"
+      echo "Running: cmake -B $build_dir -S . -DCMAKE_BUILD_TYPE=$build_type --install-prefix $install_dir ${cmake_gen[*]} ${additional_cmake_opts[*]}"
       if [ "$CMAKE_BUILD_IN_PWD" == "false" ]; then
-         echo "Will symlink $build_dir to $(pwd)/$(basename $build_dir)"
+         echo "Will symlink $build_dir to $(pwd)/$(basename "$build_dir")"
       fi
-      if [ "$only_cmake" == "true" ]; then
-         return
-      else
+      if [ "$only_cmake" != "true" ]; then
          echo "Running: cmake --build $build_dir --target install -j $num_jobs"
       fi
       if [ "$CMAKE_INSTALL_IN_PWD" == "false" ]; then
-         echo "Will symlink $install_dir to $(pwd)/$(basename $install_dir)"
+         echo "Will symlink $install_dir to $(pwd)/$(basename "$install_dir")"
       fi
       if [ "$runtests" == "true" ]; then
          echo "Running: cmake --build $build_dir --target tests -j $num_jobs"
       fi
-      return
+      return 0
    fi
 
-   # Link the build directory to the source directory, if the symlink does not exist, linking
-   # NOTE: We do not want to do this if the build directory is in pwd
-   # so we will check if CMAKE_BUILD_IN_PWD is set to false
+   # Symlink build dir
    if [ "$CMAKE_BUILD_IN_PWD" == "false" ]; then
-      if [ ! -L $(pwd)/$(basename $build_dir) ]; then
-         ln -sv $build_dir .
+      if [ ! -L "$(pwd)/$(basename "$build_dir")" ]; then
+         ln -sv "$build_dir" .
       else
-         echo "$(basename $build_dir) already exists. Not linking."
+         echo "$(basename "$build_dir") already exists. Not linking."
       fi
    fi
+
    # Run cmake
-   cmake -B $build_dir -S . -DCMAKE_BUILD_TYPE=$build_type --install-prefix $install_dir $cmake_gen $additional_cmake_options
-   # the build directory with the dirname of the full $build_dir path
+   cmake -B "$build_dir" -S . -DCMAKE_BUILD_TYPE="$build_type" --install-prefix "$install_dir" "${cmake_gen[@]}" "${additional_cmake_opts[@]}"
+
    if [ "$only_cmake" == "true" ]; then
       echo ""
       echo "To install, run:"
-      echo "cmake --build $build_dir --target install -j ${num_jobs}"
-      return
+      echo "cmake --build '$build_dir' --target install -j ${num_jobs}"
+      return 0
    fi
 
-   # Link the install directory to the source directory if the symlink does not exist, linking
-   # the install directory with the dirname of the full $install_dir path
-   # NOTE: We do not want to do this if the install directory is in pwd
-   # so we will check if CMAKE_INSTALL_IN_PWD is set to false
+   # Symlink install dir
    if [ "$CMAKE_INSTALL_IN_PWD" == "false" ]; then
-      if [ ! -L $(pwd)/$(basename $install_dir) ]; then
-         ln -sv $install_dir .
+      if [ ! -L "$(pwd)/$(basename "$install_dir")" ]; then
+         ln -sv "$install_dir" .
       else
-         echo "$(basename $install_dir) already exists. Not linking."
+         echo "$(basename "$install_dir") already exists. Not linking."
       fi
    fi
-   # Run the build and install
-   cmake --build $build_dir --target install -j ${num_jobs}
 
-   # Run tests if asked
+   # Run build + install
+   cmake --build "$build_dir" --target install -j "${num_jobs}"
+
+   # Run tests
    if [ "$runtests" == "true" ]; then
-      cmake --build $build_dir --target tests -j ${num_jobs}
+      cmake --build "$build_dir" --target tests -j "${num_jobs}"
    fi
 }
-
