@@ -244,6 +244,11 @@ function docmake() {
    fi
 
    # Run cmake
+   # FIX: Ensure build directory exists before running cmake, otherwise profiling fails
+   if [ ! -d "$build_dir" ]; then
+      mkdir -p "$build_dir"
+   fi
+
    cmake -B "$build_dir" -S . -DCMAKE_BUILD_TYPE="$build_type" --install-prefix "$install_dir" "${cmake_gen[@]}" "${additional_cmake_opts[@]}"
 
    if [ "$only_cmake" == "true" ]; then
