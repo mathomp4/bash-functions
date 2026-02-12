@@ -11,8 +11,8 @@ function usage() {
    echo "  --debug: build type is Debug"
    echo "  --aggressive: build type is Aggressive"
    echo "  --vecttrap: build type is VectTrap"
-   echo "  --ninja: use Ninja as the build system (Default)"
-   echo "  --gnumake: use GNU Make as the build system"
+   echo "  --ninja: use Ninja as the build system"
+   echo "  --gnumake: use GNU Make as the build system (Default)"
    echo "  --only-cmake: only run the cmake command"
    echo "  -n|--dryrun|--dry-run: echo the cmake command and not run it"
    echo "  --runtests: run the tests after the build and install"
@@ -30,7 +30,7 @@ function usage() {
    echo '    $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type'
    echo '  where $current_basename is the name of the directory that docmake is called from'
    echo '  and $build_type is the build type (Debug, Aggressive, VectTrap, or Release)'
-   echo '  If the Ninja generator is used (default), then the build and install directories are appended with "-Ninja"'
+   echo '  If the Ninja generator is used, then the build and install directories are appended with "-Ninja"'
    echo
    echo '  If the extra option is given, the build and install directories are:'
    echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-<extra_name>-$build_type'
@@ -105,7 +105,7 @@ function docmake() {
    # Defaults
    local only_cmake=false
    local dryrun=false
-   local do_ninja=true  # Default to Ninja
+   local do_ninja=false  # Default to Ninja
    local runtests=false
    local mitbuild=false
    local use_f2py=true
@@ -114,7 +114,7 @@ function docmake() {
    local extra_name=""
    local custom_build_dir=""
    local custom_install_dir=""
-   
+
    # Use arrays for safer flag handling
    local -a additional_cmake_opts=()
    local -a cmake_gen=()
@@ -162,11 +162,11 @@ function docmake() {
    done
 
    local current_basename=$(basename "$(pwd)")
-   
+
    # Default build/install dirs
    local default_build_dir
    local default_install_dir
-   
+
    if [ "$extra_name" != "" ]; then
       default_build_dir="$_CMAKE_BUILD_LOCATION/$current_basename/build-$extra_name-$build_type"
       default_install_dir="$_CMAKE_INSTALL_LOCATION/$current_basename/install-$extra_name-$build_type"
