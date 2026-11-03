@@ -6,11 +6,12 @@
 # - Use $(dirname "${PWD}") for parent dir.
 
 function usage() {
-   echo "Usage: docmake (--debug | --aggressive | --vecttrap) --ninja --gnumake --only-cmake -n|--dryrun|--dry-run --runtests --jobs <number_of_jobs> --extra <extra_name> --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options> --mit --profile"
+   echo "Usage: docmake (--debug | --aggressive | --vecttrap | --fast) --ninja --gnumake --only-cmake -n|--dryrun|--dry-run --runtests --jobs <number_of_jobs> --extra <extra_name> --builddir <custom_build_dir> --installdir <custom_install_dir> --cmake-options <additional_cmake_options> --mit --profile"
    echo ""
    echo "  --debug: build type is Debug"
    echo "  --aggressive: build type is Aggressive"
    echo "  --vecttrap: build type is VectTrap"
+   echo "  --fast: build type is Fast"
    echo "  --ninja: use Ninja as the build system"
    echo "  --gnumake: use GNU Make as the build system (Default)"
    echo "  --only-cmake: only run the cmake command"
@@ -29,7 +30,7 @@ function usage() {
    echo '    $CMAKE_BUILD_LOCATION/$current_basename/build-$build_type'
    echo '    $CMAKE_INSTALL_LOCATION/$current_basename/install-$build_type'
    echo '  where $current_basename is the name of the directory that docmake is called from'
-   echo '  and $build_type is the build type (Debug, Aggressive, VectTrap, or Release)'
+   echo '  and $build_type is the build type (Debug, Aggressive, VectTrap, Fast, or Release)'
    echo '  If the Ninja generator is used, then the build and install directories are appended with "-Ninja"'
    echo
    echo '  If the extra option is given, the build and install directories are:'
@@ -129,6 +130,7 @@ function docmake() {
          --debug)       build_type="Debug" ;;
          --aggressive)  build_type="Aggressive" ;;
          --vecttrap)    build_type="VectTrap" ;;
+         --fast)        build_type="Fast" ;;
          --ninja)       do_ninja=true ;;
          --gnumake)     do_ninja=false ;;
          --only-cmake)  only_cmake=true ;;
