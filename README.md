@@ -77,6 +77,17 @@ Call as:
 rgi <pattern>
 ```
 
+## oc-sessions
+
+List the 50 most recently updated top-level OpenCode sessions across projects
+in a Nushell table. Pass a number to change the limit. Requires `opencode`,
+`jq`, and `nu`.
+
+```bash
+oc-sessions
+oc-sessions 100
+```
+
 ## sq
 
 This runs `squeue` and then pipes the output to `rpen.py` to colorize the output.
@@ -85,4 +96,3 @@ Call as:
 ```bash
 sq <options>
 ```
-
